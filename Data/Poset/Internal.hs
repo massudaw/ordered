@@ -20,12 +20,12 @@ instance Bounded PosetOrd where
     maxBound = NComp
 
 instance Enum PosetOrd where
-    toEnum n | n >= 0 && n < 4 = Comp $ toEnum n
-             | n == 4 = NComp
+    toEnum n | n >= 0 && n < 3 = Comp $ toEnum n
+             | n == 3 = NComp
              | otherwise = error "Data.Poset.toEnum: bad argument"
 
     fromEnum (Comp c) = fromEnum c
-    fromEnum NComp = 4
+    fromEnum NComp = 3
 
 -- Lexicographic ordering.
 
@@ -35,12 +35,6 @@ instance Monoid PosetOrd where
     mappend NComp _ = NComp
     mappend (Comp LT) _ = Comp LT
     mappend (Comp GT) _ = Comp GT
-
-
--- | Internal-use function to convert our Ordering to the ordinary one.
-unsafeTotalOrder :: PosetOrd -> Ordering
-unsafeTotalOrder (Comp cmp) = cmp
-unsafeTotalOrder NComp = error "Uncomparable elements in total order."
 
 -- | Internal-use function to convert the ordinary Ordering to ours.
 partialOrder :: Ordering -> PosetOrd
@@ -61,9 +55,9 @@ partialOrder = Comp
 class Eq a => Poset a where
     posetCmp :: a -> a -> PosetOrd
     -- | Is comparable to.
-    (<=?=>)  :: a -> a -> Bool
+    (<==>)  :: a -> a -> Bool
     -- | Is not comparable to.
-    (<=/?=>)  :: a -> a -> Bool
+    (</=>)  :: a -> a -> Bool
     -- | Less than or equal.
     leq :: a -> a -> Bool
     -- | Greater than or equal.
@@ -79,15 +73,15 @@ class Eq a => Poset a where
         | b `leq` a = Comp GT
         | otherwise = NComp
 
-    a <=?=> b = a `posetCmp` b /= NComp
-    a <=/?=> b = a `posetCmp` b == NComp
+    a <==> b = a `posetCmp` b /= NComp
+    a </=> b = a `posetCmp` b == NComp
 
     a `lt` b = a `posetCmp` b == Comp LT
     a `gt` b = a `posetCmp` b == Comp GT
 
-    a `leq` b | a <=?=> b = a `posetCmp` b /= Comp GT
+    a `leq` b | a <==> b = a `posetCmp` b /= Comp GT
               | otherwise = False
-    a `geq` b | a <=?=> b = a `posetCmp` b /= Comp LT
+    a `geq` b | a <==> b = a `posetCmp` b /= Comp LT
               | otherwise = False
 
-infixl 4 <=?=>,<=/?=>
+infixl 4 <==>,</=>

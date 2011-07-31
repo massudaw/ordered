@@ -6,12 +6,12 @@
  - There is NO WARRANTY, to the extent permitted by law.
  -}
 
--- | 'Poset' and 'Sortable' instances for instances of 'Prelude.Ord'
+-- | 'Poset' for instances of 'Prelude.Ord'
 {-# LANGUAGE CPP #-}
 module Data.Poset.Instances where
 
 import qualified Data.Poset.Internal as Poset
-import Data.Poset.Internal (Poset, partialOrder, unsafeTotalOrder)
+import Data.Poset.Internal (Poset, partialOrder)
 
 import Data.Ratio
 import Data.List
@@ -20,8 +20,8 @@ import Data.Int
 
 #define POSET_ORD_INSTANCE(ctx, v) instance ctx Poset (v) where { \
     posetCmp = (partialOrder .) . compare; \
-    (<=?=>)  = const $ const True; \
-    (<=/?=>)  = const $ const False }
+    (<==>)  = const $ const True; \
+    (</=>)  = const $ const False }
 
 POSET_ORD_INSTANCE(, Bool)
 POSET_ORD_INSTANCE(, Char)

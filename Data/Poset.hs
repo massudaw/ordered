@@ -10,14 +10,12 @@
 -- total orders and therefore not suitable for floating point.  However, we can
 -- still define meaningful 'max' and 'sort' functions for these types.
 --
--- We define our own 'Ord' class which is intended as a replacement for
--- 'Prelude.Ord'.  However, in order to take advantage of existing libraries
--- which use 'Prelude.Ord', we make every instance of 'Ord' an instance of
--- 'Prelude.Ord'.  This is done using the OverlappingInstances and
--- UndecidableInstances extensions -- it remains to be seen if problems occur
--- as a result of this.
+-- We define a 'PosetOrd' class which extends 'Prelude.Ord' by adding
+-- a 'NComp' constructor representing that two elements are
+-- incomparable.
 module Data.Poset (
     Poset(..), 
+    PosetOrd(..),
     module Data.Poset
 ) where
 
