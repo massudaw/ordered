@@ -6,35 +6,48 @@
  - There is NO WARRANTY, to the extent permitted by law.
  -}
 
--- | 'Poset' for instances of 'Prelude.Ord'
+-- | 'Poset' and 'Sortable' instances for instances of 'Prelude.Ord'
 {-# LANGUAGE CPP #-}
 module Data.Poset.Instances where
 
 import qualified Data.Poset.Internal as Poset
-import Data.Poset.Internal (Poset, partialOrder)
+import Data.Poset.Internal (Poset, Sortable, partialOrder )
 
 import Data.Ratio
-import Data.List
 import Data.Word
 import Data.Int
 
 #define POSET_ORD_INSTANCE(ctx, v) instance ctx Poset (v) where { \
-    posetCmp = (partialOrder .) . compare; \
+    compare = (partialOrder .) . compare; \
+    (<)     = (<); \
+    (<=)    = (<=); \
+    (>=)    = (>=); \
+    (>)     = (>); \
     (<==>)  = const $ const True; \
     (</=>)  = const $ const False }
 
-POSET_ORD_INSTANCE(, Bool)
-POSET_ORD_INSTANCE(, Char)
-POSET_ORD_INSTANCE(, Int)
-POSET_ORD_INSTANCE(, Int8)
-POSET_ORD_INSTANCE(, Int16)
-POSET_ORD_INSTANCE(, Int32)
-POSET_ORD_INSTANCE(, Int64)
-POSET_ORD_INSTANCE(, Word)
-POSET_ORD_INSTANCE(, Word8)
-POSET_ORD_INSTANCE(, Word16)
-POSET_ORD_INSTANCE(, Word32)
-POSET_ORD_INSTANCE(, Word64)
-POSET_ORD_INSTANCE(, Integer)
+#define SORTABLE_ORD_INSTANCE(ctx, v) instance ctx Sortable (v) where { \
+    isOrdered = const True; \
+    max    = max; \
+    min    = min; }
 
-POSET_ORD_INSTANCE(Integral a =>, Ratio a)
+#define ORD_INSTANCE(ctx, v) \
+    POSET_ORD_INSTANCE(ctx, v); \
+    SORTABLE_ORD_INSTANCE(ctx, v); \
+    instance ctx Poset.Ord (v)
+
+ORD_INSTANCE(, Bool)
+ORD_INSTANCE(, Char)
+ORD_INSTANCE(, Int)
+ORD_INSTANCE(, Int8)
+ORD_INSTANCE(, Int16)
+ORD_INSTANCE(, Int32)
+ORD_INSTANCE(, Int64)
+ORD_INSTANCE(, Word)
+ORD_INSTANCE(, Word8)
+ORD_INSTANCE(, Word16)
+ORD_INSTANCE(, Word32)
+ORD_INSTANCE(, Word64)
+ORD_INSTANCE(, Integer)
+
+ORD_INSTANCE(Integral a =>, Ratio a)

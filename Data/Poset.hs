@@ -10,29 +10,54 @@
 -- total orders and therefore not suitable for floating point.  However, we can
 -- still define meaningful 'max' and 'sort' functions for these types.
 --
--- We define a 'PosetOrd' class which extends 'Prelude.Ord' by adding
--- a 'NComp' constructor representing that two elements are
--- incomparable.
+-- We define our own 'Ord' class which is intended as a replacement for
+-- 'Prelude.Ord'.  However, in order to take advantage of existing libraries
+-- which use 'Prelude.Ord', we make every instance of 'Ord' an instance of
+-- 'Prelude.Ord'.  This is done using the OverlappingInstances and
+-- UndecidableInstances extensions -- it remains to be seen if problems occur
+-- as a result of this.
 module Data.Poset (
-    Poset(..), 
-    PosetOrd(..),
+    sortBy,Poset(..), Sortable(..), Ordering(..), Ord,
     module Data.Poset
 ) where
 
+import qualified Prelude
+import Prelude hiding (Ord(..), Ordering(..))
 import Data.Poset.Instances
 import Data.Poset.Internal
+import qualified Data.Ord as O
 
 import Data.Function
 import Data.Monoid
+import Data.Set  (Set)
+import qualified Data.Set  as Set
 
 instance Poset a => Poset (Maybe a) where
-    Just x  `leq` Just y = x `leq` y
-    Nothing `leq` _      = True
-    _       `leq` _      = False
+    Just x  <= Just y = x <= y
+    Nothing <= _      = True
+    _       <= _      = False
 
 instance Poset a => Poset [a] where
-    posetCmp = (mconcat .) . zipWith posetCmp
+    compare = (mconcat .) . zipWith compare
+
+instance O.Ord a => Sortable (Set a) where
+    isOrdered i
+      | Set.size i == 1 = True
+      | otherwise = False
+
+instance O.Ord a => Poset (Set a) where
+    compare i j
+      | Set.isSubsetOf i j = LT
+      | Set.isSubsetOf j i = GT
+      |  otherwise = compare (Set.size i)  (Set.size j) <>  case O.compare i j of
+                          O.LT -> LT
+                          O.EQ -> EQ
+                          O.GT -> GT
+
+-- | Sort a list using the default comparison function.
+sort :: Sortable a => [a] -> [a]
+sort = sortBy compare
 
 -- | Apply a function to values before comparing.
-comparing :: Poset b => (a -> b) -> a -> a -> PosetOrd
-comparing = on posetCmp
+comparing :: Poset b => (a -> b) -> a -> a -> Ordering
+comparing = on compare

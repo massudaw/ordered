@@ -6,82 +6,127 @@
  - There is NO WARRANTY, to the extent permitted by law.
  -}
 
+{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
 module Data.Poset.Internal where
+
+import qualified Data.List as List
+import qualified Prelude
+import Prelude hiding (Ordering(..), Ord(..))
 
 import Data.Monoid
 
--- | Are two elements of the underlying comparabale or not; if they
--- are, then Ordering tell the relation between them.
-data PosetOrd = Comp Ordering | NComp
-    deriving (Eq, Show, Read)
-
-instance Bounded PosetOrd where
-    minBound = Comp $ minBound 
-    maxBound = NComp
-
-instance Enum PosetOrd where
-    toEnum n | n >= 0 && n < 3 = Comp $ toEnum n
-             | n == 3 = NComp
-             | otherwise = error "Data.Poset.toEnum: bad argument"
-
-    fromEnum (Comp c) = fromEnum c
-    fromEnum NComp = 3
+data Ordering = LT | EQ | GT | NC
+    deriving (Eq, Show, Read, Bounded, Enum)
 
 -- Lexicographic ordering.
+instance Monoid Ordering where
+    mempty = EQ
+    mappend EQ x = x
+    mappend NC _ = NC
+    mappend LT _ = LT
+    mappend GT _ = GT
 
-instance Monoid PosetOrd where
-    mempty = Comp EQ
-    mappend (Comp EQ) x = x
-    mappend NComp _ = NComp
-    mappend (Comp LT) _ = Comp LT
-    mappend (Comp GT) _ = Comp GT
+-- | Internal-use function to convert our Ordering to the ordinary one.
+totalOrder :: Ordering -> Prelude.Ordering
+totalOrder LT = Prelude.LT
+totalOrder EQ = Prelude.EQ
+totalOrder GT = Prelude.GT
+totalOrder NC = error "Uncomparable elements in total order."
 
 -- | Internal-use function to convert the ordinary Ordering to ours.
-partialOrder :: Ordering -> PosetOrd
-partialOrder = Comp
+partialOrder :: Prelude.Ordering -> Ordering
+partialOrder Prelude.LT = LT
+partialOrder Prelude.EQ = EQ
+partialOrder Prelude.GT = GT
 
 -- | Class for partially ordered data types.  Instances should satisfy the
 -- following laws for all values a, b and c:
 --
--- * @a `leq` a@.
+-- * @a <= a@.
 --
--- * @a `leq` b@ and @b `leq` a@ implies @a == b@.
+-- * @a <= b@ and @b <= a@ implies @a == b@.
 --
--- * @a `leq` b@ and @b `leq` c@ implies @a `leq` c@.
+-- * @a <= b@ and @b <= c@ implies @a <= c@.
 --
 -- But note that the floating point instances don't satisfy the first rule.
 --
--- Minimal definition: posetCmp or leq.
+-- Minimal complete definition: 'compare' or '<='.
 class Eq a => Poset a where
-    posetCmp :: a -> a -> PosetOrd
+    compare :: a -> a -> Ordering
     -- | Is comparable to.
     (<==>)  :: a -> a -> Bool
     -- | Is not comparable to.
     (</=>)  :: a -> a -> Bool
-    -- | Less than or equal.
-    leq :: a -> a -> Bool
-    -- | Greater than or equal.
-    geq :: a -> a -> Bool
-    -- | Strict less than.
-    lt :: a -> a -> Bool
-    -- | Strict greater than.
-    gt :: a -> a -> Bool
+    (<)     :: a -> a -> Bool
+    (<=)    :: a -> a -> Bool
+    (>=)    :: a -> a -> Bool
+    (>)     :: a -> a -> Bool
 
-    a `posetCmp` b
-        | a == b = Comp EQ
-        | a `leq` b = Comp LT
-        | b `leq` a = Comp GT
-        | otherwise = NComp
+    a `compare` b
+        | a == b = EQ
+        | a <= b = LT
+        | b <= a = GT
+        | otherwise = NC
 
-    a <==> b = a `posetCmp` b /= NComp
-    a </=> b = a `posetCmp` b == NComp
+    a <    b = a `compare` b == LT
+    a >    b = a `compare` b == GT
+    a <==> b = a `compare` b /= NC
+    a </=> b = a `compare` b == NC
+    a <=   b = a < b || a `compare` b == EQ
+    a >=   b = a > b || a `compare` b == EQ
 
-    a `lt` b = a `posetCmp` b == Comp LT
-    a `gt` b = a `posetCmp` b == Comp GT
+-- | Class for partially ordered data types where sorting makes sense.
+-- This includes all totally ordered sets and floating point types.  Instances
+-- should satisfy the following laws:
+--
+-- * The set of elements for which 'isOrdered' returns true is totally ordered.
+--
+-- * The max (or min) of an insignificant element and a significant element
+-- is the significant one.
+--
+-- * The result of sorting a list should contain only significant elements.
+--
+-- * @max a b@ = @max b a@
+--
+-- * @min a b@ = @min b a@
+--
+-- The idea comes from floating point types, where non-comparable elements
+-- (NaNs) are the exception rather than the rule.  For these types, we can
+-- define 'max', 'min' and 'sortBy' to ignore insignificant elements.  Thus, a
+-- sort of floating point values will discard all NaNs and order the remaining
+-- elements.
+--
+-- Minimal complete definition: 'isOrdered'
+class Poset a => Sortable a where
+    isOrdered :: a -> Bool
+    max :: a -> a -> a
+    min :: a -> a -> a
 
-    a `leq` b | a <==> b = a `posetCmp` b /= Comp GT
-              | otherwise = False
-    a `geq` b | a <==> b = a `posetCmp` b /= Comp LT
-              | otherwise = False
+    max a b = case a `compare` b of
+        LT -> b
+        EQ -> a
+        GT -> a
+        NC -> if isOrdered a then a else if isOrdered b then b else a
+    min a b = case a `compare` b of
+        LT -> a
+        EQ -> b
+        GT -> b
+        NC -> if isOrdered a then a else if isOrdered b then b else a
 
-infixl 4 <==>,</=>
+sortBy :: (b -> b -> Ordering) -> [b] -> [b]
+sortBy f = List.sortBy ((totalOrder .) . f) -- . filter isOrdered
+
+-- | Class for totally ordered data types.  Instances should satisfy
+-- @isOrdered a = True@ for all @a@.
+class Sortable a => Ord a
+
+-- This hack allows us to leverage existing data structures defined in terms
+-- of 'Prelude.Ord'.
+{-instance Data.Poset.Internal.Ord a => Prelude.Ord a where
+    compare = (totalOrder .) . compare
+    (<)     = (<)
+    (<=)    = (<=)
+    (>=)    = (>=)
+    (>)     = (>)
+    min     = min
+    max     = max-}
